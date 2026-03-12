@@ -4,18 +4,21 @@ from secrets import secrets
 from adafruit_matrixportal.matrixportal import MatrixPortal
 from adafruit_display_text import bitmap_label
 from adafruit_bitmap_font import bitmap_font
-from adafruit_imageload import load  # for BMP icon
-import adafruit_ntp
+from adafruit_imageload import load
 
 #config
 #------------------------
 PROXY_URL = secrets["PROXY_URL"]
-STOP_ID = "13915"
-REFRESH_INTERVAL = 30  # seconds
+REFRESH_INTERVAL = 15
+
+# list of stops to rotate through
+STOPS = [
+    {"id": "13915", "name": "STANYAN"},
+    {"id": "13914", "name": "OCEAN BEACH"},
+]
 
 ROUTE_CODE = "N"
-ROUTE_NAME = "CALTRAIN"
-STOP_NAME = "STANYAN"
+ROUTE_NAME = "JUDAH"
 
 FONT_FILE = "/fonts/Arial-12.bdf"
 MUNI_ORANGE = 0xFC7E00
@@ -29,45 +32,20 @@ matrixportal.network.connect()
 print("Connected to Wi-Fi!")
 print("IP Address:", matrixportal.network.ip_address)
 
-# wip, screen to turn off (sleep mode) between 10p and 7a pst
-def get_current_time_struct():
-    """Fetch current time from proxy and convert to struct_time"""
-    try:
-        response = matrixportal.network.fetch(f"{PROXY_URL}/?stop={STOP_ID}")
-        data = response.json()
-        response.close()
+#check if display is allowed based on PST 24-hour time
+def display_allowed(time_24hr=None):
+    hour = 8
+    if time_24hr:
+        try:
+            parts = time_24hr.strip().split(":")
+            if len(parts) >= 1:
+                hour = int(parts[0])
+        except ValueError:
+            print("Could not parse hour from:", time_24hr)
+            hour = 8
 
-        current_iso = data.get("current_time")
-        if current_iso:
-            # Convert ISO string to struct_time (ignore microseconds/Z)
-            t = time.struct_time((
-                date_parts[0],  # year
-                date_parts[1],  # month
-                date_parts[2],  # day
-                time_parts[0],  # hour
-                time_parts[1],  # minute
-                time_parts[2],  # second
-                -1,             # weekday
-                -1,             # yearday
-                -1              # isdst
-))
-            return t
-            print(t)
-    except Exception as e:
-        print("Failed to fetch current time:", e)
-    return None
-
-def display_allowed():
-    """Return True if current hour is between 7am and 10pm PST"""
-    t = get_current_time_struct()
-    if t:
-        hour = t.tm_hour
-    else:
-        # fallback if time fetch fails
-        hour = 8
     print("Current PST hour:", hour)
-    return 7 <= hour < 22
-
+    return 7 <= hour < 22  # only allow display times
 
 #display setup
 #------------------------
@@ -98,14 +76,14 @@ bottom_lines = bitmap_label.Label(
     color=MUNI_ORANGE
 )
 bottom_lines.anchor_point = (0, 0)
-bottom_lines.anchored_position = (0, 12)  # reduced spacing from 14 → 12
+bottom_lines.anchored_position = (0, 12)
 group.append(bottom_lines)
 
 matrixportal.display.root_group = group
 
-#fetch arrivals task (calls proxy)
+#fetch stop data task (calls proxy)
 #-----------------------------------
-def get_muni_minutes(stop_id):
+def get_stop_data(stop_id):
     url = f"{PROXY_URL}/?stop={stop_id}"
     try:
         response = matrixportal.network.fetch(url)
@@ -121,29 +99,97 @@ def get_muni_minutes(stop_id):
         return minutes[:3]
 
     except Exception as e:
-        print("Error fetching arrivals:", e)
+        print("Error fetching stop data:", e)
         return []
+
+#fetch time/date task (calls proxy)
+#-----------------------------------
+def get_time_data():
+    url = f"{PROXY_URL}/?time=true"
+    try:
+        response = matrixportal.network.fetch(url)
+        data = response.json()
+        response.close()
+
+
+        return (
+            data.get("weekday"),
+            data.get("date"),
+            data.get("time_12hr"),
+            data.get("time_24hr")
+        )
+
+    except Exception as e:
+        print("Error fetching time data:", e)
+        return None, None, None, None
 
 #display loop
 #-------------------------
+current_screen_index = 0
+
 while True:
-    if display_allowed():
+    weekday, date_str, time_12hr, time_24hr = get_time_data()
+
+    if display_allowed(time_24hr):
         matrixportal.display.brightness = 1.0
-        minutes = get_muni_minutes(STOP_ID)
 
-        if minutes:
-            minutes_text = ", ".join(str(m) for m in minutes) + "m"
+        is_stop_screen = current_screen_index < len(STOPS)
+
+        if is_stop_screen:
+            #stop screen
+            current_stop = STOPS[current_screen_index]
+            stop_id = current_stop["id"]
+            stop_name = current_stop["name"]
+            minutes = get_stop_data(stop_id)
+            minutes_text = ", ".join(str(m) for m in minutes) + "m" if minutes else "No arrivals"
+
+            n_icon.hidden = False
+            top_line.anchored_position = (14, 0)
+            top_line.text = ROUTE_NAME
+            bottom_lines.anchored_position = (0, 12)
+            bottom_lines.text = f"{stop_name}\n{minutes_text}"
+
+            total_screens = len(STOPS) + 1
+            current_screen_index = (current_screen_index + 1) % total_screens
+
+            time.sleep(REFRESH_INTERVAL)
+
         else:
-            minutes_text = "No arrivals"
+            #time screen
+            n_icon.hidden = True
+            top_line.anchored_position = (0, 0)
 
-        top_line.text = ROUTE_NAME
-        bottom_lines.text = f"{STOP_NAME}\n{minutes_text}"
+            time_str_only = time_12hr[:-3]
+            hour, minute, second = map(int, time_str_only.split(":"))
+            am_pm = time_12hr[-2:]
 
-        print(ROUTE_NAME, STOP_NAME, minutes_text)
+            seconds_elapsed = 0
 
-        time.sleep(REFRESH_INTERVAL)
+            while seconds_elapsed < REFRESH_INTERVAL:
+                second += 1
+                if second >= 60:
+                    second = 0
+                    minute += 1
+                if minute >= 60:
+                    minute = 0
+                    hour += 1
+                if hour > 12:
+                    hour -= 12
+
+                display_time = f"{hour:02d}:{minute:02d}:{second:02d} {am_pm}"
+
+                top_line.text = weekday
+                bottom_lines.anchored_position = (0, 12)
+                bottom_lines.text = f"{date_str}\n{display_time}"
+
+                time.sleep(1)
+                seconds_elapsed += 1
+
+            current_screen_index = 0
     else:
+        #hide display outside hours
         matrixportal.display.brightness = 0
+        n_icon.hidden = True
         top_line.text = ""
         bottom_lines.text = ""
         print("Outside display hours")
