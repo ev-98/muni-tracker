@@ -106,7 +106,7 @@ secrets = {
 
 ---
 
-## Coming Soon: bart-tracker
+## bart-tracker
 
 - A future alternative version of this project will replicate BART station displays  
 - Goals:
