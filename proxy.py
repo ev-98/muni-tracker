@@ -4,7 +4,7 @@ import requests
 import json
 
 app = Flask(__name__)
-API_KEY = "785423d3-840a-4826-b768-cf5481f9371c"
+API_KEY = "insert api key"
 
 
 def iso_to_minutes(iso_time):
