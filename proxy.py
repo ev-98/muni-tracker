@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
-from datetime import datetime, timezone, timedelta  # <-- imported timedelta
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import requests
 import json
 
 app = Flask(__name__)
-API_KEY = "insert api key"
+API_KEY = "insert key here"
 
 
 def iso_to_minutes(iso_time):
@@ -45,7 +46,7 @@ def proxy():
         #-------------------------
         if time_screen:
             now_utc = datetime.now(timezone.utc)
-            pst_dt = now_utc - timedelta(hours=7)
+            pst_dt = datetime.now(ZoneInfo("America/Los_Angeles"))
 
             # 12-hour time with am/pm
             time_12hr = pst_dt.strftime("%I:%M:%S %p").lstrip("0")
@@ -126,4 +127,4 @@ def proxy():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=False)

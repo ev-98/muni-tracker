@@ -13,7 +13,7 @@ REFRESH_INTERVAL = 15
 
 # list of stops to rotate through
 STOPS = [
-    {"id": "13915", "name": "STANYAN"},
+    {"id": "13915", "name": "CALTRAIN"},
     {"id": "13914", "name": "OCEAN BEACH"},
 ]
 
@@ -165,25 +165,12 @@ while True:
 
             seconds_elapsed = 0
 
-            while seconds_elapsed < REFRESH_INTERVAL:
-                second += 1
-                if second >= 60:
-                    second = 0
-                    minute += 1
-                if minute >= 60:
-                    minute = 0
-                    hour += 1
-                if hour > 12:
-                    hour -= 12
+            top_line.text = weekday
+            bottom_lines.anchored_position = (0, 12)
+            time_no_seconds = time_12hr[:-6] + " " + time_12hr[-2:]
+            bottom_lines.text = f"{date_str}\n{time_no_seconds}"
 
-                display_time = f"{hour:02d}:{minute:02d}:{second:02d} {am_pm}"
-
-                top_line.text = weekday
-                bottom_lines.anchored_position = (0, 12)
-                bottom_lines.text = f"{date_str}\n{display_time}"
-
-                time.sleep(1)
-                seconds_elapsed += 1
+            time.sleep(REFRESH_INTERVAL)
 
             current_screen_index = 0
     else:
