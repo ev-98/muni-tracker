@@ -1,5 +1,8 @@
 # muni-tracker LED Display
 
+![picture of the sign in action](sign.jpeg)
+
+
 ## Overview
 A custom-built transit display powered by CircuitPython that shows real-time San Francisco MUNI arrival information alongside the current time. The display is designed to mimic the look and feel of classic MUNI signage, creating a functional and aesthetic piece for everyday use.
 
@@ -39,7 +42,7 @@ Instead of checking a phone, the display provides quick, ambient access to arriv
 
 > Note: These values should be updated to match your target stop and route.
 
-> Note: There is code implemented to translate the current time to PST, as well as turn the display screen off between the hours of 11p and 7a. These can be adjusted in the 'display_allowed' funciton.
+> Note: There is code implemented to translate the current time to PST, as well as turn the display screen off between the hours of 10p and 7a. These can be adjusted in the 'display_allowed' funciton.
 
 ---
 
@@ -74,10 +77,10 @@ secrets = {
 
 ---
 
-## Replication Guide (High-Level)
+## DIY Guide
 
 1. Assemble MatrixPortal + LED display  
-2. Set up Raspberry Pi Zero 2 W with `proxy.py` running on boot  
+2. Set up Raspberry Pi Zero 2 W with `proxy.py` running on boot
 3. Configure `secrets.py` with your network credentials  
 4. Update hardcoded stop/route values in `code.py`  
 5. Deploy `code.py` to the MatrixPortal  
